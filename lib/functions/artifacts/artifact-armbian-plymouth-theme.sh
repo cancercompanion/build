@@ -22,16 +22,22 @@ function artifact_armbian-plymouth-theme_prepare_version() {
 
 	# get the hashes of the lib/ bash sources involved...
 	declare hash_files="undetermined"
-	calculate_hash_for_bash_deb_artifact "compilation/packages/armbian-plymouth-theme-deb.sh" "${SRC}/packages/plymouth-theme-armbian/armbian.plymouth"
+	calculate_hash_for_bash_deb_artifact "compilation/packages/armbian-plymouth-theme-deb.sh"
 	declare bash_hash="${hash_files}"
 	declare bash_hash_short="${bash_hash:0:${short_hash_size}}"
 
+	declare hash_files="undetermined"
+	calculate_hash_for_all_files_in_dirs "${SRC}/packages/plymouth-theme-armbian"
+	declare assets_hash="${hash_files}"
+	declare assets_hash_short="${assets_hash:0:${short_hash_size}}"
+
 	# outer scope
-	artifact_version="${fake_unchanging_base_version}-B${bash_hash_short}"
+	artifact_version="${fake_unchanging_base_version}-B${bash_hash_short}-A${assets_hash_short}"
 
 	declare -a reasons=(
 		"Armbian armbian-plymouth-theme"
 		"framework bash hash \"${bash_hash}\""
+		"assets hash \"${assets_hash}\""
 	)
 
 	artifact_version_reason="${reasons[*]}" # outer scope
