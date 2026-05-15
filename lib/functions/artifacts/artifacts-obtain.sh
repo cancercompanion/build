@@ -232,8 +232,12 @@ function obtain_complete_artifact() {
 	declare -g artifact_exists_in_local_reversioned_cache="undetermined"
 	declare -g artifact_exists_in_remote_cache="undetermined"
 
-	# Ignore both local and remote cache if we're deploying to remote or if ARTIFACT_IGNORE_CACHE=yes
-	if [[ "${ARTIFACT_IGNORE_CACHE}" != "yes" && "${deploy_to_remote:-"no"}" != "yes" ]]; then
+	# Ignore both local and remote cache if
+	#   - we're deploying to remote or
+	#   - ARTIFACT_IGNORE_CACHE=yes or
+	#   - the specific artifact is listed in ARTIFACT_CACHE_BLACKLIST
+	if [[ "${ARTIFACT_IGNORE_CACHE}" != "yes" && "${deploy_to_remote:-"no"}" != "yes" && \
+		",${ARTIFACT_CACHE_BLACKLIST}," != *",${chosen_artifact},"* ]]; then
 
 		# If NOT deploying to remote, check if the reversioned artifact exists in local cache.
 		if [[ "${deploy_to_remote:-"no"}" != "yes" ]]; then
@@ -264,7 +268,7 @@ function obtain_complete_artifact() {
 				fi
 			fi
 		fi # endif artifact_exists_in_local_reversioned_cache!=yes
-	fi  # endif ARTIFACT_IGNORE_CACHE!=yes
+	fi
 
 	# If it's not in any of the caches, build it.
 	if [[ "${artifact_exists_in_local_cache}" != "yes" && "${artifact_exists_in_remote_cache}" != "yes" &&
