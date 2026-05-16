@@ -665,6 +665,44 @@ set_user_icon() {
 }
 
 
+FIRSTLOGIN_TTY_PRIORITY=("/dev/tty1" "/dev/ttyAMA0" "/dev/ttyS0")
+
+current_tty=$(tty 2>/dev/null)
+if [[ -z "$current_tty" ]]; then
+	echo "Current session is not a tty session, exiting..."
+	exit 1
+fi
+
+# default delay = 10s for tty that is not on the priority list
+#
+# if no tty on the priority list exists, the other tty compete for the file lock
+# in a first-come-first-served manner after the default delay
+#
+# note the number of tty in the priority list:
+# default delay should be <= (number of tty in list + 1) * delay_step
+delay=10
+delay_step=2
+for i in "${!FIRSTLOGIN_TTY_PRIORITY[@]}"; do
+	if [[ "$current_tty" == "${FIRSTLOGIN_TTY_PRIORITY[$i]}" ]]; then
+		delay=$((i * delay_step))
+		break
+	fi
+done
+
+echo "Waiting for $delay seconds before proceeding to respect tty priority..."
+sleep "$delay"
+
+# file lock to prevent racing condition
+exec {lock_fd}>/var/lock/armbian-firstlogin.lock || {
+	echo -e "Error: Cannot create firstlogin lock file\n"
+	exit 1
+}
+if ! flock -n "$lock_fd"; then
+	echo -e "Another tty is running firstlogin script\n"
+	exit 0
+fi
+
+
 if [[ -f /root/.not_logged_in_yet && -n $(tty) ]]; then
 
 	. /root/.not_logged_in_yet
@@ -791,18 +829,6 @@ if [[ -f /root/.not_logged_in_yet && -n $(tty) ]]; then
 				curl --retry 5 --connect-timeout 3 "${PRESET_ROOT_KEY}" > /root/.ssh/authorized_keys 2> /dev/null
 			fi
 		fi
-
-		# Get current session identifiers
-		current_tty=$(tty | sed 's:/dev/::')  # e.g., "tty1"
-		current_pid=$$
-
-		# Kill ONLY other active root SHELL sessions (not login processes)
-		ps -u root -o pid,tty,comm |
-		  awk -v me="$current_tty" -v mypid="$current_pid" '
-		    NR>1 && $2 != "?" && $2 != me && $1 != mypid && $3 ~ /sh$/ {
-		      print $1
-		    }' |
-		  xargs --no-run-if-empty kill -9
 
 		# enable motd
 		chmod +x /etc/update-motd.d/*
